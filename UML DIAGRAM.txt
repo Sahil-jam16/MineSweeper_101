@@ -1,0 +1,227 @@
++-------------------------------------------+
+|            ScoreMinesweeper               |  p
++-------------------------------------------+
+| - playerName: String                      |
+| - matrix: TileMinesweeper[][]             |
+| - score: int                              |
+| - gameTime: TimerMinesweeper              |
+| - sysTime: String                         |
+| - difficulty: String                      |
+| - ROWS: int                               |
+| - COLS: int                               |
++-------------------------------------------+
+| + ScoreMinesweeper(playerName: String,    |
+|     score: int,gameTime: TimerMinesweeper,|
+|     difficulty: String,ROWS:int, COLS:int,|
+|   matrix[][]: TileMinesweeper[][]): void  |
+|                                	    |
+|                                 	    |	
+|                       		    |
+| + getScore(): void                        |
+| + getScoreObjectValues(): String[]        |
+| + scoreReset(): void                      |
+| + writeScoreToFile(): void                |
++-------------------------------------------+
+
+--------------------------------------------------------------------------------------------------------------
+
++--------------------------------------+
+|    	    TileMinesweeper  	       |
++--------------------------------------+
+| - normal: BufferedImage              |
+| - openedImage: BufferedImage         |
+| - flagImage: BufferedImage           |
+| - bombImage: BufferedImage           |
+| - bombImage_face: BufferedImage      |
+| - errorImage: BufferedImage          |  p
+| - x: int                             |
+| - y: int                             |
+| - bomb: boolean                      |
+| - bomb_face: boolean                 |
+| - opened: boolean                    |
+| - flag: boolean                      |
+| - error: boolean                     |
+| - amountOfNearBombs: int             |
++--------------------------------------------------------------------+
+| + TileMinesweeper(x: int, y: int, normal: BufferedImage,           |
+|                   bomb: BufferedImage, bomb_face: BufferedImage,   |
+|                   openedImage: BufferedImage, flag: BufferedImage, |
+|                   error: BufferedImage) 			     |	
+| + setOpenedImage(openedImage: BufferedImage): void 		     |
+| + setOpened(opened: boolean): void 				     |
+| + isOpened(): boolean 					     |
+| + setBomb(bomb: boolean): void 				     |
+| + setBombFace(bomb: boolean): void 				     |
+| + setError(error: boolean): void 				     |
+| + isBomb(): boolean 						     |
+| + isBombFace(): boolean 					     |
+| + isError(): boolean 					             |
+| + setAmountOfNearBombs(amountOfNearBombs: int): void 		     | 
+| + getAmountOfNearBombs(): int 				     |
+| + canOpen(): boolean 						     |
+| + placeFlag(): void 						     |
+| + placeFlower(): void 					     |
+| + isFlag(): boolean 						     |
+| + reset(): void 						     |
+| + draw(g: Graphics): void 					     |
+| + getWidth(): int 						     |
+| + getHeight(): int 						     |
++--------------------------------------------------------------------+
+
+------------------------------------------------------------------------------------------------------------
+
+                    +------------------------+
+                    |   TimerMinesweeper     |
+                    +------------------------+
+                    | - TIMER: float         |   p
+                    | - timer_running: bool  |
+                    | - timer: Timer         |
+                    | - task: TimerTask      |
+                    | - game_time: float     |
+                    +------------------------+
+                    | +TimerMinesweeper()    |
+                    | +startTimer()          |
+                    | +stopTimer()           |
+                    | +getTimer(): float     |
+                    | +setTimer(value: int)  |
+                    | +isTimeRunning(): bool |
+                    +------------------------+
+
+------------------------------------------------------------------------------------------------------------
+
++----------------------------------------+
+|                JDBCMineSweeper         |	
++----------------------------------------+
+| -JTextField nameInput                  |
+| -JButton calculateButton               |
+| -JLabel resultLabel                    |
++----------------------------------------+
+| +addScoresDatabase(score: ScoreMinesweeper):void |
+| +calculateAverages():void              |
++----------------------------------------+
+
++----------------------------------------+
+|              ScoreMinesweeper           |
++----------------------------------------+
+| -String name                           |
+| -int score                             |
+| -Date time                             |
++----------------------------------------+
+| +ScoreMinesweeper(name: String, score: int, time: Date) |
+| +getScoreObjectValues(): String[]      |
++----------------------------------------+
+
+--------------------------------------------------------------------------------------------------------------
+
+
++------------------------------------------------+
+|   ImageLoaderMinesweeper   			 |
++------------------------------------------------+
+| +loadImage(String): BufferedImage  		 |
+| +scale(BufferedImage, int, int): BufferedImage |  p
++------------------------------------------------+
+
+
+
+--------------------------------------------------------------------------------------------------------------
+
+-----------------------------------
+|        ExecutionLogger          |
+-----------------------------------
+| - logFilePath: String           	       |
+| - startTime: LocalDateTime      	       |
+| - endTime: LocalDateTime        	       |
+-----------------------------------------------+
+| + ExecutionLogger(logFilePath: String)       |
+| + logStart(): void              	       |
+| + logEnd(): void                	       |
+| - formatDate(time: LocalDateTime): String    |
+| - formatTime(time: LocalDateTime): String    |
+| - formatDuration(duration: Duration): String |
++----------------------------------------------+
+
+------------------------------------------------------------------------------------------------------------
+
++---------------------------------------+
+|              FrameMinesweeper          |
++---------------------------------------+
+| - width: int                           |
+| - height: int                          |
+| - screen: Screen                       |
+| - font: Font                           |
+| - menu_bar: JMenuBar                   |
+| - tool_bar: JToolBar                   |
+| - flags_number: JButton                |
+| - tiles_number: JButton                |
+| - time_number: static JButton          |
+| - sounds: JCheckBoxMenuItem            |
+| - insetLeft: int                       |
+| - insetTop: int                        |
++---------------------------------------+
+| + FrameMinesweeper()                   |
+| - Init(): void                         |
++---------------------------------------+
+| + actionPerformed(e: ActionEvent):    |
+|   void                                |
+| + mouseReleased(e: MouseEvent): void  |
+| + mouseClicked(e: MouseEvent): void   |
+| + mouseEntered(e: MouseEvent): void   |
+| + mouseExited(e: MouseEvent): void    |
+| + mousePressed(e: MouseEvent): void   |
+| + windowActivated(e: WindowEvent):    |
+|   void                                |
+| + windowClosed(e: WindowEvent): void  |
+| + windowClosing(e: WindowEvent): void |
+| + windowDeactivated(e: WindowEvent):  |
+|   void                                |
+| + windowDeiconified(e: WindowEvent):  |
+|   void                                |
+| + windowIconified(e: WindowEvent):    |
+|   void                                |
+| + windowOpened(e: WindowEvent): void  |
++---------------------------------------+
+
++---------------------------------------+
+|                 Screen                |
++---------------------------------------+
+| - TILE_SIZE: int                       |
+| - tile_grid: Tile[][]                  |
+| - game_status: boolean                 |
+| - seconds_elapsed: int                 |
+| - flags_remaining: int                 |
+| - mines: int                            |
+| - tiles_clicked: int                   |
++---------------------------------------+
+| + Screen()                             |
+| + paint(g: Graphics): void             |
+| + paintComponent(g: Graphics): void    |
+| + drawGrid(g: Graphics): void          |
+| + drawTiles(g: Graphics): void         |
+| + updateTiles(): void                  |
+| + getTile(x: int, y: int): Tile        |
+| + gameOver(): void                     |
+| + victory(): void                      |
++---------------------------------------+
+
++---------------------------------------+
+|                  Tile                 |
++---------------------------------------+
+| - tile_id: int                         |
+| - adjacent_mines: int                  |
+| - is_mine: boolean                      |
+| - is_flagged: boolean                  |
+| - is_revealed: boolean                 |
++---------------------------------------+
+| + Tile(id: int)                        |
+| + isFlagged(): boolean                 |
+| + toggleFlagged(): void                |
+| + isRevealed(): boolean                |
+| + revealTile(): boolean                |
+| + isMine(): boolean                     |
+| + getAdjacentMines(): int              |
+| + setAdjacentMines(n: int): void       |
++---------------------------------------+
+
+
+
+

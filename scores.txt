@@ -1,0 +1,17 @@
+PLAYERONE,9,9.60,difficultyNormal,15,15
+RAM,9,93.00,difficultyNormal,15,15
+KARNESH,6,76.30,difficultyEasy,11,11
+SAHIL,6,73.90,difficultyNormal,15,15
+Sahil,6,47.70,difficultyNormal,15,15
+HELLO,4,23.80,difficultyNormal,15,15
+RANDOM,2,23.50,difficultyNormal,15,15
+PLAYER_01,1,7.10,difficultyNormal,15,15
+null,1,36.40,difficultyNormal,15,15
+null,4,34.70,difficultyNormal,15,15
+Player_01,2,9.10,difficultyNormal,15,15
+SAHIL,2,37.20,difficultyNormal,15,15
+RAM,1,9.90,difficultyNormal,15,15
+SAM,2,17.80,difficultyNormal,15,15
+Alice,3,27.40,difficultyNormal,15,15
+Winner,6,73.40,difficultyEasy,11,11
+PlayerONE,1,15.80,difficultyNormal,15,15

@@ -1,0 +1,1087 @@
+package game;
+
+import java.io.*;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.UnsupportedAudioFileException;
+import javax.swing.ImageIcon;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.*;
+
+import java.awt.image.BufferedImage;
+import java.awt.Graphics;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Rectangle;
+
+class WorldMinesweeper {
+	private static int COLS;
+	private static int ROWS;
+	private static int N_BOMBS; 
+	private static int N_FLAGS;
+	private static boolean dead;
+	private static boolean finish;
+	private static boolean started;
+	static TileMinesweeper[][] matrix;
+	private static TimerMinesweeper timer = new TimerMinesweeper();
+	private static String[] list;
+	private static String player_name;
+
+	public static String []DIFFICULTY = {"difficultyEasy", "difficultyNormal", "difficultyHard"};
+	private static String current_difficulty;
+	private static FrameMinesweeper frame;
+	private static ScoreMinesweeper score;
+
+	//private static float gameTime;
+
+	private BufferedImage bomb_img;
+	private BufferedImage bomb_no_face_img;
+	private BufferedImage flag_img;
+	private BufferedImage pressed_img;
+	private BufferedImage pressed2_img;
+	private BufferedImage normal_img;
+	private BufferedImage normal2_img;
+	private BufferedImage error_img;
+
+	//CONSTRUCTOR
+	public WorldMinesweeper(String difficulty) {
+
+		if (difficulty.equals(DIFFICULTY[0])) {
+			current_difficulty = DIFFICULTY[0];
+			COLS = 11;
+			ROWS = 11;
+		}
+		if (difficulty.equals(DIFFICULTY[1])) {
+			current_difficulty = DIFFICULTY[1];
+			COLS = 15;
+			ROWS = 15;
+		} 
+		if (difficulty.equals(DIFFICULTY[2])) {
+			current_difficulty = DIFFICULTY[2];
+			COLS = 21;
+			ROWS = 21;
+		} 
+		N_BOMBS = COLS*ROWS*16/100;
+		N_FLAGS = N_BOMBS;
+
+		
+		scaleImages();
+		
+		matrix = new TileMinesweeper[ROWS][COLS];
+
+		if (frame != null) {
+			frame.setVisible(false); 
+			frame.dispose(); //Destroy the JFrame object
+		}
+
+
+
+		frame = new FrameMinesweeper();
+
+		boolean tile_switch = false;
+		for (int i=0; i<ROWS; i++) {
+			for (int j=0; j<COLS; j++) {
+				if (tile_switch == false) {
+					matrix[i][j] = new TileMinesweeper(i, j, normal_img, bomb_no_face_img, bomb_img, pressed_img, flag_img, error_img);
+					tile_switch = true;
+				}
+				else {
+					matrix[i][j] = new TileMinesweeper(i, j, normal2_img, bomb_no_face_img, bomb_img, pressed2_img, flag_img, error_img);
+					tile_switch = false;
+				}
+			}
+			
+		}
+
+		this.player_name = get_player_name();
+
+		score = new ScoreMinesweeper(player_name,0, timer, difficulty,ROWS,COLS,matrix);
+		reset();
+	}
+
+	private String get_player_name() {
+		String name = JOptionPane.showInputDialog(null, "Please enter your name:");
+		JOptionPane.showMessageDialog(null, "All THE BEST , " + name + " !!!");
+		return name;
+	}
+
+	private void scaleImages() {
+		bomb_img = ImageLoader_Minesweeper.scale(ImageLoader_Minesweeper.loadImage("res/bomb_face.png"), TileMinesweeper.getWidth(), TileMinesweeper.getHeight());
+		bomb_no_face_img = ImageLoader_Minesweeper.scale(ImageLoader_Minesweeper.loadImage("res/bomb.png"), TileMinesweeper.getWidth(), TileMinesweeper.getHeight());
+		flag_img = ImageLoader_Minesweeper.scale(ImageLoader_Minesweeper.loadImage("res/flag.png"), TileMinesweeper.getWidth(), TileMinesweeper.getHeight());
+		pressed_img = ImageLoader_Minesweeper.scale(ImageLoader_Minesweeper.loadImage("res/tile_brown_normal.png"), TileMinesweeper.getWidth(), TileMinesweeper.getHeight());
+		pressed2_img = ImageLoader_Minesweeper.scale(ImageLoader_Minesweeper.loadImage("res/tile_brown2_normal.png"), TileMinesweeper.getWidth(), TileMinesweeper.getHeight());
+		normal_img = ImageLoader_Minesweeper.scale(ImageLoader_Minesweeper.loadImage("res/tile_green_normal.png"), TileMinesweeper.getWidth(), TileMinesweeper.getHeight());
+		normal2_img = ImageLoader_Minesweeper.scale(ImageLoader_Minesweeper.loadImage("res/tile_green2_normal.png"), TileMinesweeper.getWidth(), TileMinesweeper.getHeight());
+		error_img = ImageLoader_Minesweeper.scale(ImageLoader_Minesweeper.loadImage("res/error.png"), TileMinesweeper.getWidth(), TileMinesweeper.getHeight());
+	}
+	
+	private static void place_all_bombs() {
+		for (int i=0; i<N_BOMBS; i++) { 
+			place_bomb();
+		}
+	}
+	
+	private static void place_bomb() {
+		Random random = new Random();
+		int tileX = random.nextInt(COLS);
+		int tileY = random.nextInt(ROWS);
+		
+		if (matrix[tileX][tileY].isBomb()) place_bomb();
+		else {
+			matrix[tileX][tileY].setBomb(true);
+			return;
+		}
+		
+	}
+	
+	public static void showNumberOfFlag() {
+		int count = 0;
+		for (int i=0; i<ROWS; i++) {
+			for (int j=0; j<COLS; j++) {
+				if (matrix[i][j].isFlag() && matrix[i][j].isOpened()==false) count++;
+			}
+		}
+		
+		N_FLAGS = N_BOMBS-count;
+		frame.setFlagsNumber(N_FLAGS);
+	}
+	
+	public static void showWrongFlags() {
+		for (int i=0; i<ROWS; i++) {
+			for (int j=0; j<COLS; j++) {
+				if (matrix[i][j].isFlag() && !(matrix[i][j].isBomb() || matrix[i][j].isBombFace())) {
+					matrix[i][j].setError(true);
+					
+				}
+			}
+			
+		}
+		
+	}
+
+	public static void left_click(int x, int y) {
+		int x_axis = x/TileMinesweeper.getWidth();
+		int y_axis = y/TileMinesweeper.getHeight();
+
+		if (started == false) {
+			while(!(matrix[x_axis][y_axis].getAmountOfNearBombs() == 0 && matrix[x_axis][y_axis].isBomb() == false)) {
+				reset();
+			}
+		}
+		
+		if (dead == false && finish == false) {	
+			started = true;
+			
+			if (timer.isTimeRunning() == false) {
+				timer.startTimer();  
+			}
+			
+			if (matrix[x_axis][y_axis].isFlag()) return;
+			else if (matrix[x_axis][y_axis].isOpened())return;
+			else if (matrix[x_axis][y_axis].isBomb()) {
+				dead = true;
+
+				showAllBombs();
+				showWrongFlags();
+
+
+				matrix[x_axis][y_axis].setBomb(false);
+				matrix[x_axis][y_axis].setBombFace(true);
+				
+				// audio configuration
+				try {
+					openSound(".//res//buttonEffect.wav");
+				} catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
+					e.printStackTrace();
+					System.err.println("Exception --> " + e);
+				}
+			}
+			else if (matrix[x_axis][y_axis].getAmountOfNearBombs() == 0 && matrix[x_axis][y_axis].isBomb() == false) open(x_axis, y_axis);
+			
+			matrix[x_axis][y_axis].setOpened(true);
+			
+			if (!dead) {
+				// sound
+				try {
+					String []choose = {"sound_effect_open1.wav", "sound_effect_open2.wav", "sound_effect_open3.wav", "sound_effect_open4.wav"}; 
+					Random random = new Random(); 
+					int index = random.nextInt(4-1) + 1;
+					openSound(".//res//"+choose[index]);
+				} catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
+					e.printStackTrace();
+					System.err.println("Exception --> " + e);
+				}
+			}
+			
+			checkFinish();
+			
+			if ((finish == true || dead == true) && timer.isTimeRunning() == true ) {
+				score.getScore();
+				score.writeScoreToFile();
+				score.showScores();
+				score.scoreReset();
+				timer.stopTimer();
+				timer = new TimerMinesweeper();
+			}
+			
+			if (dead == false && finish == true) {
+			    try {
+				    String result = JOptionPane.showInputDialog(null,player_name , "Congratulations!! Seconds Passed = " + timer.getTimer(), JOptionPane.INFORMATION_MESSAGE);
+				} catch (Exception e) {
+					e.printStackTrace();
+					System.err.println("Exception --> " + e);
+				} 
+			   
+			}
+		}
+
+	}
+	
+	public static void right_click(int x, int y) {
+		if(dead == false && finish == false){
+			
+			if (timer.isTimeRunning() == false) {
+				timer.startTimer();
+			}
+			
+			int x_axis = x/TileMinesweeper.getWidth();
+			int y_axis = y/TileMinesweeper.getHeight();
+			matrix[x_axis][y_axis].placeFlag();
+			
+			showNumberOfFlag();
+			
+			// sound
+			if (!matrix[x_axis][y_axis].isOpened()) {
+				try {
+					openSound(".//res//sound_effect_flag.wav");
+				} catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
+					e.printStackTrace();
+					System.err.println("Exception --> " + e);
+				}
+			}
+			
+		}
+		
+	}
+	
+	public static void openSound(String path) throws UnsupportedAudioFileException, IOException, LineUnavailableException {
+		if (frame.isSoundEffectActive() == false) return; // caso di uscita
+		
+		File file = new File(path);
+		AudioInputStream audioStream = AudioSystem.getAudioInputStream(file);
+		Clip clip = AudioSystem.getClip();
+		clip.open(audioStream);
+		clip.start();
+	}
+	
+	
+	private static void checkFinish() {
+		finish = true; 
+		for(int i = 0; i<COLS; i++) {
+			for(int j=0; j<ROWS; j++) {
+				if (matrix[i][j].isBomb() && matrix[i][j].isOpened()) {
+					dead = true;
+					return;
+				} 
+				if (matrix[i][j].isBomb() == false && matrix[i][j].isOpened() == false) {
+					finish = false;
+					return;
+				}
+			}
+		}
+		
+	}
+	
+	
+	//TODO: fix
+	private void winLayout() {
+		removeAllFlags();
+		
+		try {
+			TimeUnit.MILLISECONDS.sleep(1000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+			System.err.println("Exception --> " + e);
+		}
+
+		for (int i=0; i<ROWS; i++) {
+			for (int j=0; j<COLS; j++) {
+				if (matrix[i][j].isBomb()) {
+					try {
+						TimeUnit.MILLISECONDS.sleep(100);
+						matrix[i][j].placeFlower();
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+						System.err.println("Exception --> " + e);
+					}
+				}
+			}
+		}
+	}
+	
+	public static void reset() {
+
+		for(int i=0; i<COLS; i++){
+			for(int j=0; j<ROWS; j++){
+				matrix[i][j].reset();
+			}
+		}
+		
+
+		dead = false;
+		finish = false;
+		started = false;
+		
+
+		place_all_bombs();
+		set_number_of_near_bombs();
+
+		frame.setFlagsNumber(N_BOMBS);
+		frame.setTilesNumber(COLS*ROWS);
+		frame.setTimer(0);	
+		
+		// restart timer
+		timer.setTimer(0);
+		if (timer.isTimeRunning() == true) {
+			timer.stopTimer();
+			timer = new TimerMinesweeper();
+		} 
+	}
+	
+	
+	public static void draw(Graphics g){
+		Font font = new Font("SansSerif", 0, frame.getScreenWidth()*10/100);
+		Rectangle rect = new Rectangle(frame.width, frame.height);
+		for(int x = 0;x < COLS;x++){
+			for(int y = 0;y < ROWS;y++){
+				matrix[x][y].draw(g);
+			}
+		}
+		
+		if(dead){
+			g.setColor(Color.RED);
+			frame.drawCenteredString(g, "Game Over!", rect, font);
+		}
+		else if(finish){
+			g.setColor(Color.GREEN);
+			frame.drawCenteredString(g, "You Won!!", rect, font);
+		}
+	}
+	
+	public static void OpenRules () throws Exception {	
+		ImageIcon icon = new ImageIcon(".//res//info.png");
+		JOptionPane.showMessageDialog(null, 
+				"Minesweeper rules are very simple: \r\n"
+				+ "			- The board is divided into cells, with mines randomly distributed. \r\n"
+				+ "			- To win, you need to open all the cells. \r\n"
+				+ "			- The number on a cell shows the number of mines adjacent to it. \r\n"
+				+ "			- Using this information, you can determine cells that are safe, and cells that contain mines. \r\n"
+				+ "			- Cells suspected of being mines can be marked with a flag using the right mouse button.",
+				"How To Play",
+				JOptionPane.PLAIN_MESSAGE, icon);
+
+	}
+
+	// ######################## Scoreboard ########################
+	public static void OpenScoreboard() throws Exception {
+		String filePath = "G:\\College Work\\SEMESTER IV\\JAVA LAB\\HUSTLE\\MineSweeper_101\\scores.txt";
+		File file = new File(filePath);
+		if (!file.exists()) {
+			System.out.println("Scoreboard file not found.");
+			return;
+		}
+
+		BufferedReader reader = new BufferedReader(new FileReader(file));
+		List<String> scoreList = new ArrayList<String>();
+		String line;
+		while ((line = reader.readLine()) != null) {
+			scoreList.add(line);
+		}
+		reader.close();
+
+		String new_score = player_name + " -->  Seconds: " + timer.getTimer();
+		JPanel pnl = new JPanel();
+		pnl.setBounds(61, 11, 81, 140);
+		pnl.setLayout(new BoxLayout(pnl, BoxLayout.Y_AXIS)); // VerticalLayout
+		JLabel[] labels = new JLabel[scoreList.size()];
+
+		for (int i = 0; i < scoreList.size(); i++) {
+			String score = scoreList.get(i);
+			labels[i] = new JLabel();
+
+			if (score.equals(new_score)) {
+				new_score = (i + 1) + ". " + new_score + "\n";
+				labels[i].setText(new_score);
+				labels[i].setForeground(new Color(50, 205, 50));
+			} else {
+				labels[i].setText((i + 1) + ". " + score);
+			}
+
+			pnl.add(labels[i]);
+		}
+
+		ImageIcon icon = new ImageIcon(".//res//trophy.png");
+		JOptionPane.showMessageDialog(null, pnl, "Scoreboard", JOptionPane.PLAIN_MESSAGE, icon);
+	}
+	
+
+	/*
+	private static void getScoreboard(String difficulty) {
+		int DIM_MAX = 11;
+		list = new String[DIM_MAX];
+		try {
+			BufferedReader br = new BufferedReader(new FileReader(".//res//scoreboard" + "_" + difficulty));
+			
+			for (int i=0; i<DIM_MAX; i++) {
+				if ((list[i] = br.readLine()) != null);
+			}
+			
+			br.close();
+		} catch (IOException e) {
+			System.err.println("Exception --> " + e);
+		}
+		
+		//list = sortScoreboard(list, DIM_MAX);
+		
+		BufferedWriter bw;
+		try {
+			bw = new BufferedWriter(new FileWriter(".//res//scoreboard" + "_" + difficulty, false)); //false = append
+			for (int i=0; i<DIM_MAX-1; i++) {
+	        	if (list[i] != null) bw.write("" + list[i] + "\n");
+	        }
+	        bw.close();
+		} catch (IOException e) {
+			System.err.println("Exception --> " + e);
+		} 		
+		
+	}
+	
+
+	private static String[] sortScoreboard(String[] list, int DIM_MAX) {
+		float value1 = 0, value2 = 0;
+		for (int i=0; i<DIM_MAX; i++) {
+			if (list[i] != null) {
+				for (int c=0; c<list[i].length(); c++) {
+					if (list[i].charAt(c) == ':') {
+						value1 = Float.parseFloat(list[i].substring(c+2, list[i].length()));
+						break;
+					}
+				}
+			}
+			
+			for (int j=i+1; j<DIM_MAX; j++) {
+				if (list[j] != null) {
+					for (int c=0; c<list[j].length(); c++) {
+						if (list[j].charAt(c) == ':') {
+							value2 = Float.parseFloat(list[j].substring(c+2, list[j].length()));
+							break;
+						}
+					}
+					
+					if (value1 >= value2) {
+						String temp = list[i];
+						list[i] = list[j];
+						list[j] = temp;
+					}
+				}
+				
+			}
+		}
+		
+		return list;
+	} */
+	// ########################
+
+
+	private static void open(int x, int y) {
+		matrix[x][y].setOpened(true);
+		
+		if(matrix[x] [y].getAmountOfNearBombs() == 0) {
+			int mx = x - 1;
+			int gx = x + 1;
+			int my = y - 1;
+			int gy = y + 1;
+
+			if(mx>=0 && my>=0 && matrix[mx][my].canOpen()) open(mx, my);
+			if(mx>=0 && matrix[mx][y].canOpen()) open(mx, y);
+			if(mx>=0 && gy<ROWS && matrix[mx][gy].canOpen()) open(mx, gy);
+			
+			if(my>=0 && matrix[x][my].canOpen()) open(x, my);
+			if(gy<ROWS && matrix[x][gy].canOpen()) open(x, gy);
+			
+			if(gx<COLS && my>=0 && matrix[gx][my].canOpen()) open(gx, my);
+			if(gx<COLS && matrix[gx][y].canOpen()) open(gx, y);
+			if(gx<COLS && gy<ROWS && matrix[gx][gy].canOpen()) open(gx, gy);
+		}
+	}
+	
+	public static void showAllBombs () {
+		for (int i=0; i<ROWS; i++) {
+			for (int j=0; j<COLS; j++) {
+				if ((matrix[i][j].isBomb() || matrix[i][j].isBombFace()) && matrix[i][j].isFlag() == false) matrix[i][j].setOpened(true);
+			}
+		}
+	}
+	
+	public static void removeAllFlags() {
+		for (int i=0; i<ROWS; i++) {
+			for (int j=0; j<COLS; j++) {
+				if (matrix[i][j].isFlag()) matrix[i][j].placeFlag();
+			}
+		}
+	}
+	
+	
+	
+	
+	
+	// GETTER
+	public static int getCOLS() {
+		return COLS;
+	}
+	
+	public static int getROWS() {
+		return ROWS;
+	} 
+	
+	public static int getN_BOMBS() {
+		return N_BOMBS;
+	} 
+	
+	public static int getN_FLAGS() {
+		return N_FLAGS;
+	} 
+	
+	// SETTER
+	public static void setCOLS(int value) {
+		COLS = value;
+		reset();
+	}
+	
+	public static void setROWS(int value) {
+		ROWS = value;
+		reset();
+	}
+	
+	
+	
+	private static void set_number_of_near_bombs() {
+		int number_of_near_bombs = 0;
+		for (int i=0; i<COLS; i++) {
+			for (int j=0; j<ROWS; j++) {
+				if (!matrix[i][j].isBomb()) {
+					if (j+1 < ROWS) if (matrix[i][j+1].isBomb()) number_of_near_bombs++;
+					if (j-1 >= 0) 	if (matrix[i][j-1].isBomb()) number_of_near_bombs++;
+					if (i+1 < COLS) if (matrix[i+1][j].isBomb()) number_of_near_bombs++;
+					if (i-1 >= 0) 	if (matrix[i-1][j].isBomb()) number_of_near_bombs++;
+					if (i-1 >= 0 && j+1 < ROWS) 	if (matrix[i-1][j+1].isBomb()) number_of_near_bombs++;
+					if (i-1 >= 0 && j-1 >= 0) 		if (matrix[i-1][j-1].isBomb()) number_of_near_bombs++;
+					if (i+1 < COLS && j+1 < ROWS) 	if (matrix[i+1][j+1].isBomb()) number_of_near_bombs++;
+					if (i+1 < COLS && j-1 >= 0) 	if (matrix[i+1][j-1].isBomb()) number_of_near_bombs++;
+					
+					matrix[i][j].setAmountOfNearBombs(number_of_near_bombs);
+					number_of_near_bombs = 0;
+				}
+				
+			}
+			
+		}	
+	}
+	
+}
+
+--------------------------------------------------------------------------
+
+package game;
+
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Rectangle;
+import java.awt.Graphics;
+import java.awt.BorderLayout;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
+import java.awt.Toolkit;
+import java.awt.Point;
+
+import javax.swing.*;
+
+
+@SuppressWarnings("serial")
+class FrameMinesweeper extends JFrame implements MouseListener, WindowListener, ActionListener{
+	
+	public static int width = 600; 
+	public static int height = 600;
+	
+	private Screen screen;
+	private Font font;
+	
+	private JMenuBar menu_bar;
+	private JToolBar tool_bar;
+	
+	private JButton flags_number;
+	private JButton tiles_number;
+	private static JButton time_number;
+	private JCheckBoxMenuItem sounds;
+	
+	private int insetLeft;
+	private int insetTop;
+	
+	// CONSTRUCTOR	
+	public FrameMinesweeper () { 
+		
+		addMouseListener(this);
+		
+		Init();
+		
+		screen = new Screen();
+		this.setLayout(new BorderLayout());
+		add(screen, BorderLayout.CENTER);
+		
+		// ------ ToolBar
+		tool_bar = new JToolBar();
+		tool_bar.setFloatable(false);
+		this.add(tool_bar, BorderLayout.NORTH);
+		
+		JPanel panel = new JPanel();
+		
+		Icon icon1 = new ImageIcon("res/tile_green_normal.png");
+		Icon icon2 = new ImageIcon("res/flag.png");
+		Icon icon3 = new ImageIcon("res/clock.png");
+		
+		tiles_number = new JButton("Tiles = ");
+		flags_number = new JButton("Flags = ");
+		time_number = new JButton("Time = ");
+		
+		tiles_number.setIcon(icon1);
+		flags_number.setIcon(icon2);
+		time_number.setIcon(icon3);
+		
+		tiles_number.setBorderPainted(false);
+		flags_number.setBorderPainted(false);
+		time_number.setBorderPainted(false);
+		
+		tiles_number.setFocusPainted(false);
+		flags_number.setFocusPainted(false);
+		time_number.setFocusPainted(false);
+		
+		tiles_number.setContentAreaFilled(false);
+		flags_number.setContentAreaFilled(false);
+		time_number.setContentAreaFilled(false);
+		
+		panel.add(tiles_number);
+		panel.add(time_number);
+		panel.add(flags_number);
+		tool_bar.add(panel);
+
+		addWindowListener(this);
+		
+		// Menu Bar
+		menu_bar = new JMenuBar();
+		setJMenuBar(menu_bar);
+		
+		// Menus
+		JMenu mnuGame = new JMenu("Game");
+		JMenu mnuOptions = new JMenu("Options");
+		JMenu submnuNewGame = new JMenu("New game");  //sub menu
+
+		menu_bar.add(mnuGame);
+		menu_bar.add(mnuOptions);
+		
+		// Menu Items
+		JMenuItem restart = new JMenuItem("Restart");
+		JMenuItem remove_all_flags = new JMenuItem("Remove all flags");
+		JMenuItem scoreboard = new JMenuItem("Scoreboard");
+		JMenuItem rules = new JMenuItem("How To Play");
+		JMenuItem share = new JMenuItem("Share");
+		JMenuItem quit = new JMenuItem("Quit");
+		JMenuItem easy = new JMenuItem("Easy");
+		JMenuItem normal = new JMenuItem("Normal");
+		JMenuItem hard = new JMenuItem("Hard");
+		sounds = new JCheckBoxMenuItem("Sounds Effect"); 
+		mnuGame.add(restart);
+		mnuGame.add(submnuNewGame);
+		mnuGame.add(remove_all_flags);
+		mnuGame.add(scoreboard);
+		mnuOptions.add(sounds);
+		mnuOptions.add(rules);
+		mnuOptions.add(share);
+		mnuOptions.add(quit);
+		submnuNewGame.add(easy);
+		submnuNewGame.add(normal);
+		submnuNewGame.add(hard);
+
+		sounds.setSelected(true);
+		
+		// Action Command
+		restart.setActionCommand("Restart");
+		remove_all_flags.setActionCommand("Remove All Flags");
+		scoreboard.setActionCommand("Scoreboard");
+		rules.setActionCommand("Rules");
+		share.setActionCommand("Share");
+		quit.setActionCommand("Quit");
+		easy.setActionCommand("Easy");
+		normal.setActionCommand("Normal");
+		hard.setActionCommand("Hard");
+		sounds.setActionCommand("Sounds Effect");
+		
+		// Action Listener
+		restart.addActionListener(this);
+		remove_all_flags.addActionListener(this);
+		scoreboard.addActionListener(this);
+		rules.addActionListener(this);
+		share.addActionListener(this);
+		quit.addActionListener(this);
+		easy.addActionListener(this);
+		normal.addActionListener(this);
+		hard.addActionListener(this);
+		sounds.addActionListener(this);
+		
+		// Acceleration
+		restart.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_R, ActionEvent.CTRL_MASK)); // ctrl+r
+		remove_all_flags.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F, ActionEvent.CTRL_MASK)); // ctrl+f
+		quit.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F4, ActionEvent.ALT_MASK)); // alt+f4
+		
+		ImageIcon image = new ImageIcon(".//res//bomb.png");
+		setIconImage(image.getImage());
+
+		setCursor(Toolkit.getDefaultToolkit().createCustomCursor(new ImageIcon(".//res//cursor.png").getImage(),new Point(0,0),"custom cursor"));
+		
+		// Setting Borders
+		setBorders();
+	}
+	
+	private void Init() {
+		this.setTitle("Minesweeper");
+		this.setResizable(true);
+        this.setLocation((Toolkit.getDefaultToolkit().getScreenSize().width - getScreenWidth()) / 2, (Toolkit.getDefaultToolkit().getScreenSize().height - getScreenHeight()) / 2); // setto la finestra al centro
+		this.setVisible(true);
+		this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+	}
+	
+	public class Screen extends JPanel {
+		@Override
+		public void paintComponent(Graphics g) {
+			font = new Font("SansSerif", Font.BOLD, width/WorldMinesweeper.getCOLS() - width/WorldMinesweeper.getCOLS()*50/100); // la grandezza dei numeri all'interno delle caselle ridimensionata in base al numero di celle - il 50% del risultato
+			g.setFont(font);
+			WorldMinesweeper.draw(g);
+		}
+	}
+	
+	private void setBorders() {
+		pack();
+		insetLeft = getInsets().left;
+		insetTop = getInsets().top;
+		setSize(width + insetLeft + getInsets().right, height + getInsets().bottom + insetTop + menu_bar.getHeight() + tool_bar.getHeight());
+	}
+	
+	// https://stackoverflow.com/questions/27706197/how-can-i-center-graphics-drawstring-in-java
+	public void drawCenteredString(Graphics g, String text, Rectangle rect, Font font) {
+	    // Get the FontMetrics
+	    FontMetrics metrics = g.getFontMetrics(font);
+	    // Determine the X coordinate for the text
+	    int x = rect.x + (rect.width - metrics.stringWidth(text)) / 2;
+	    // Determine the Y coordinate for the text (note we add the ascent, as in java 2d 0 is top of the screen)
+	    int y = rect.y + ((rect.height - metrics.getHeight()) / 2) + metrics.getAscent();
+	    // Set the font
+	    g.setFont(font);
+	    // Draw the String
+	    g.drawString(text, x, y);
+	}
+	
+	// GETTER
+	public static int getScreenWidth(){
+		return width;
+	}
+	
+	public static int getScreenHeight(){
+		return height;
+	}
+	
+	public boolean isSoundEffectActive() {
+		return sounds.isSelected();
+	}
+	
+	// SETTER
+	public void setFlagsNumber(int value) {
+		flags_number.setText("Flags = " + value);
+	}
+	
+	public void setTilesNumber(int value) {
+		tiles_number.setText("Tiles = " + value);
+	} 
+	
+	public static void setTimer(float value) {
+		time_number.setText("Time = " + value);
+	}
+	
+	// MOUSE
+	@Override
+	public void mousePressed(MouseEvent e) {}
+	
+	@Override
+	public void mouseReleased(MouseEvent e) {
+		try {
+			if(e.getButton() == 1) WorldMinesweeper.left_click(e.getX() - insetLeft, e.getY() - insetTop - menu_bar.getHeight() - tool_bar.getHeight());
+			if(e.getButton() == 3) WorldMinesweeper.right_click(e.getX() - insetLeft, e.getY() - insetTop - menu_bar.getHeight() - tool_bar.getHeight());
+			screen.repaint();
+		} catch (ArrayIndexOutOfBoundsException ex) {
+			System.err.println("Exception --> " + ex);
+		}
+
+	}
+	
+	@Override
+	public void mouseEntered(MouseEvent e) {}
+	
+	@Override
+	public void mouseExited(MouseEvent e) {}
+	
+	@Override
+	public void mouseClicked(MouseEvent e) {} 
+	
+	@Override
+	public void windowOpened(WindowEvent e) {}
+
+	@Override
+	public void windowClosing(WindowEvent e) {}
+
+	@Override
+	public void windowClosed(WindowEvent e) {}
+
+	@Override
+	public void windowIconified(WindowEvent e) {}
+
+	@Override
+	public void windowDeiconified(WindowEvent e) {}
+
+	@Override
+	public void windowActivated(WindowEvent e) {}
+
+	@Override
+	public void windowDeactivated(WindowEvent e) {}
+
+	@Override
+	public void actionPerformed(ActionEvent e) {	
+		String command = e.getActionCommand();
+		
+		if(command.equals("Restart")) {
+			WorldMinesweeper.reset();
+			screen.repaint();
+		}
+		else if (command.equals("Easy")) { 
+			width = 440;
+			height = 400;
+			new WorldMinesweeper(WorldMinesweeper.DIFFICULTY[0]);
+		}
+		
+		else if (command.equals("Normal")) {
+			width = 600;
+			height = 600;
+			new WorldMinesweeper(WorldMinesweeper.DIFFICULTY[1]); 
+		}
+		else if (command.equals("Hard")) {
+			width = 840;
+			height = 840;
+			new WorldMinesweeper(WorldMinesweeper.DIFFICULTY[2]);
+		}
+		else if (command.equals("Remove All Flags")) {
+			WorldMinesweeper.removeAllFlags();
+			screen.repaint();
+		}
+		else if (command.equals("Quit")) {
+			System.exit(EXIT_ON_CLOSE);
+		}
+		else if (command.equals("Share")) {
+			JOptionPane.showMessageDialog(null, "Share link copied to clipboard!");
+	        String testString = "https://github.com/DennisTurco/Minesweeper-Game"; 
+	        StringSelection stringSelectionObj = new StringSelection(testString);
+	        Clipboard clipboardObj = Toolkit.getDefaultToolkit().getSystemClipboard();
+	        clipboardObj.setContents(stringSelectionObj, null);
+		}
+		else if (command.equals("Rules")) {
+			try {
+				WorldMinesweeper.OpenRules();
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			}
+		}
+		else if (command.equals("Scoreboard")) {
+			try {
+				WorldMinesweeper.OpenScoreboard();
+			} catch (Exception e1) {
+				e1.printStackTrace();
+			}
+		}
+		else;
+	}
+	
+}
+
+
+---------------------------------------------------------------------------------------------------------------
+
+package game;
+
+import java.io.*;
+import java.text.DecimalFormat;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Comparator;
+import javax.swing.*;
+
+
+
+
+public class ScoreMinesweeper {
+
+    private String playerName;
+    private static TileMinesweeper matrix[][];
+    private int score;
+    private TimerMinesweeper gameTime;
+    private String difficulty;
+    private int ROWS;
+    private int COLS;
+
+
+    ScoreMinesweeper(String playerName, int score,TimerMinesweeper gameTime, String difficulty, int ROWS, int COLS,TileMinesweeper matrix[][]) {
+        this.playerName = playerName;
+        this.score = score;
+        this.gameTime = gameTime;
+        this.difficulty = difficulty;
+        this.ROWS = ROWS;
+        this.COLS = COLS;
+        this.matrix = matrix;
+    }
+
+    private void calculate_score() {
+        for (int i = 0; i < ROWS; i++) {
+            for (int j = 0; j < COLS; j++) {
+                if (matrix[i][j].isBomb() && matrix[i][j].isFlag()) {
+                    score++;
+                }
+            }
+        }
+    }
+
+
+    private String getFormattedTime() {
+        DecimalFormat df = new DecimalFormat("#.00");
+        return df.format(gameTime.getTimer());
+    }
+
+    private float getGameTime(){
+        return gameTime.getTimer();
+    }
+
+    public void getScore() {
+        calculate_score();
+    }
+
+    public void scoreReset(){ score = 0; }
+
+    public void writeScoreToFile() {
+        try {
+            FileWriter writer = new FileWriter("scores.txt", true);
+            String formattedTime = getFormattedTime();
+            String line = String.format("%s,%d,%s,%s,%d,%d", playerName, score, getFormattedTime(), difficulty, ROWS, COLS);
+            writer.write(line + System.lineSeparator());
+            writer.close();
+            System.out.println("Score saved to scores.txt: " + line);
+        } catch (IOException e) {
+            System.out.println("Error writing score to file: " + e.getMessage());
+        }
+    }
+
+    private static String readScoresFromFile() {
+        StringBuilder sb = new StringBuilder();
+
+        try (BufferedReader br = new BufferedReader(new FileReader("scores.txt"))) {
+            String line;
+
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split(",");
+                String playerName = parts[0];
+                int score = Integer.parseInt(parts[1]);
+                String gameTime = parts[2];
+                String difficulty = parts[3];
+                int rows = Integer.parseInt(parts[4]);
+                int cols = Integer.parseInt(parts[5]);
+
+                sb.append(String.format("%s: %d (%s) - %s (%d x %d)\n", playerName, score, gameTime, difficulty, rows, cols));
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading scores from file: " + e.getMessage());
+        }
+
+        return sb.toString();
+    }
+
+    public static void showScores(){
+        String rawScore = readScoresFromFile();
+        JOptionPane.showMessageDialog(null, rawScore, "Minesweeper High Scores", JOptionPane.INFORMATION_MESSAGE);
+
+    }
+
+    public static void sortScores(String inputFile) throws IOException {
+
+        // Read the input file into an array of strings
+        String[] scores = readScores(inputFile);
+
+        // Sort the array based on the third value using a custom comparator
+        Arrays.sort(scores, new Comparator<String>() {
+            @Override
+            public int compare(String s1, String s2) {
+                double v1 = Double.parseDouble(s1.split(",")[2]);
+                double v2 = Double.parseDouble(s2.split(",")[2]);
+                return Double.compare(v1, v2);
+            }
+        });
+
+        // Write the sorted scores back to the input file
+        writeScores(inputFile, scores);
+    }
+
+    private static String[] readScores(String inputFile) throws IOException {
+        try (BufferedReader br = new BufferedReader(new FileReader(inputFile))) {
+            return br.lines().toArray(String[]::new);
+        }
+    }
+
+    private static void writeScores(String inputFile, String[] scores) throws IOException {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(inputFile))) {
+            for (String score : scores) {
+                bw.write(score);
+                bw.newLine();
+            }
+        }
+    }
+
+
+}
+
+
+
+
+---------------------------------------------
+   public static void printCurrentTime() {
+        java.util.Date currentTime = new Date();
+        DateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
+        String formattedTime = dateFormat.format(currentTime);
+        System.out.println("Current time: " + formattedTime);
+    }
